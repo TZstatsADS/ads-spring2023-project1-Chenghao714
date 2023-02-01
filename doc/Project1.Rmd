@@ -15,45 +15,37 @@ Philosophy is the general study of problems such as reason, values,mind...For pe
 
 ```{r  message=FALSE,warning=FALSE}
 library(beeswarm)
-library(data.table)
 library(dichromat)
 library(dplyr)
 library(factoextra)
 library(fmsb)
 library(ggplot2)
-library(gridExtra)
-library(quanteda)
-library(quanteda.textstats)
-library(RANN)
-library(RColorBrewer)
 library(readtext)
 library(rvest)
-library(scales)
 library(sentimentr)
 library(stopwords)
 library(stringr)
-library(syuzhet)
 library(textreuse)
 library(tibble)
 library(tidytext)
 library(tidyverse)
 library(tm)
 library(topicmodels)
-library(wesanderson)
 library(wordcloud)
 ```
 
 ## Part II Main Philosophy idea for each school through wordclouds
 
-The first comparison is to find how their main ideas differ or similar from each other through wordclouds. Wordcloud is a powerful visualization tool that can help us understand how frequently each word appears in the text by different size of text.The main idea of each school can easily be investigated by visualizing its corresponding wordcloud.
+The first comparison is to find how their main ideas differ or similar from each other through wordclouds. Wordcloud is a powerful visualization tool that can help us understand how frequently each word appears in the corpus by different size of text.The main idea of each school can easily be investigated by visualizing its corresponding wordcloud.
 
 ```{r message=FALSE, warning=FALSE}
 df = read.csv("C:/Users/Chenghao Lu/Desktop/philosophy_data.csv")
-sot = c("plato","aristotle","stoicism","rationalism","empiricism","capitalism","german_idealism",
-        "communism","nietzsche","phenomenology","feminism","continental","analytic")
 
-for (i in sot){
-  docs <- Corpus(VectorSource(df[df$school == i, ]$sentence_str)) %>%
+sot = c("plato","aristotle","stoicism","rationalism","empiricism","capitalism","german_idealism","communism","nietzsche","phenomenology","feminism","continental","analytic")
+typical = c("capitalism","feminism","stoicism","plato","continental")
+
+wc <- function(i){
+  docs <- Corpus(VectorSource(df[df$school == i , ]$sentence_str)) %>%
     tm_map(tolower) %>%
     tm_map(removePunctuation) %>%
     tm_map(removeNumbers) %>%
@@ -63,18 +55,48 @@ for (i in sot){
   dtm <- TermDocumentMatrix(docs) 
   matrix <- as.matrix(dtm) 
   words <- sort(rowSums(matrix),decreasing=TRUE) 
-  df2 <- data.frame(word = names(words),freq=words)
-  
-  wordcloud(words = df2$word, freq = df2$freq, min.freq = 100, 
-            scale = c(5,0.5), max.words=200, random.order = FALSE,colors=brewer.pal(8, "Dark2"))
-  mtext(i,side=3)
-}
+  return(df2 <- data.frame(word = names(words),freq=words))
+}  
+
+  capitalism = wc(typical[1])
+
+  wordcloud(words = capitalism$word, freq = capitalism$freq, min.freq = 1, 
+            scale = c(5,0.5), max.words=200, random.order =   FALSE,colors=brewer.pal(8, "Dark2"))
+  mtext("capitalism",side=3)
+capitalism %>% filter(freq>1595) %>%  ggplot() +
+  geom_col(aes(x = word, y = freq), fill = "red") +
+  labs(x = "Frequency", title = "Words Frequency for Capitalism")
+
+
+feminism = wc(typical[2])
+wordcloud(words = feminism$word, freq = feminism$freq, min.freq = 1, 
+            scale = c(5,0.5), max.words=200, random.order =   FALSE,colors=brewer.pal(8, "Dark2"))
+  mtext("feminism",side=3)
+feminism %>% filter(freq>800) %>%  ggplot() +
+  geom_col(aes(x = word, y = freq), fill = "green") +
+  labs(x = "Frequency", title = "Words Frequency for Feminism")
 ```
 
-By examining the wordclouds, some themes from particular school become obvious. For capitalism, the words like "price","value","money" appear more often than other words which implies that this school focuses more on economics. Similar for feminism, the words like "woman", "man" reflect its focus on woman's rights and the words such as "black","white" also infer its study on racial discrimination.
+By examining the wordclouds and bar plots, some themes from particular school become obvious. For capitalism, the words like "price","value","money" appear more often than other words which implies that this school focuses more on economics. Similar for feminism, the words like "woman", "man" reflect its focus on woman's rights and the words such as "black","white" also infer its study on racial discrimination.
 
 
-However, sometimes wordcloud is not enough to see the main idea behind. For example, the stoicism uses old Engligh a lot in the text and it is difficult to understand the meaning by just counting the frequency of each word. Also, themes from some schools like Plato,nietzsche or continental... are possibly too abstract to visualize through wordclouds because we can only see the words like "one","thing","can". In this case, we had better read the whole context to understand the meaning behind the words.
+```{r message=FALSE, warning=FALSE,fig.width=6,fig.height=6}
+sto = wc(typical[3])
+wordcloud(words = sto$word, freq = sto$freq, min.freq = 1, 
+            scale = c(5,0.5), max.words=200, random.order =   FALSE,colors=brewer.pal(8, "Dark2"))
+  mtext("stoicism",side=3)
+  
+plato = wc(typical[4])
+wordcloud(words = plato$word, freq = plato$freq, min.freq = 1, 
+            scale = c(5,0.5), max.words=200, random.order =   FALSE,colors=brewer.pal(8, "Dark2"))
+  mtext("plato",side=3)
+plato %>% filter(freq>1500) %>%  ggplot() +
+  geom_col(aes(x = word, y = freq), fill = "green") +
+  labs(x = "Frequency", title = "Words Frequency for Plato")
+
+```
+
+However, sometimes wordcloud is not enough to see the main idea behind. For example, the stoicism uses old Engligh a lot in the text and it is difficult to understand the meaning by just counting the frequency of each word. Also, themes from some schools like Plato ... are possibly too abstract to visualize through wordclouds because we can only see the words like "one","thing","can". In this case, we had better read the whole context to understand the meaning behind the words.
 
 ## Part III NRC Sentiment analysis for each school
 
@@ -88,7 +110,7 @@ tidy_words <- tokenized %>% anti_join(stop_words) %>% filter(word != "pron")
 
 text_tokenized <- tidy_words %>% inner_join(emo)
 text_tokenized = count(text_tokenized, school, sentiment)
-
+text_tokenized
 ggplot(text_tokenized, aes(x = school, y = n)) +
   geom_bar(
     aes(color = sentiment, fill = sentiment),
@@ -98,6 +120,23 @@ ggplot(text_tokenized, aes(x = school, y = n)) +
 
 
 Interestingly, from the above graph, "trust" seems to be the most frequent emotions in philosophical expressions because it occupies the most part in bars for all schools while disgust and surprise are the least popular emotions among them. This can possibly be explained by the fact that all authors, no matter from which school, hope to utilize some "trust" words instead of disgusting or surprising words to deliver their ideas and convince audience.
+
+
+### 3.1 Sentiment analysis for each author
+
+```{r message=FALSE, warning=FALSE}
+
+pn <- get_sentiments("nrc") %>% filter(sentiment == "positive" | sentiment == "negative")
+
+text_tokenized_2 <- tidy_words %>% inner_join(pn)
+text_tokenized_2 = count(text_tokenized_2, author, sentiment)
+text_tokenized_2
+ggplot(text_tokenized_2, aes(x = author, y = n)) +geom_bar(aes(color = sentiment, fill = sentiment),
+    stat = "identity", position = position_dodge(0.8))+scale_x_discrete(guide = guide_axis(check.overlap = TRUE))
+```
+
+
+In a similar way, we can check if the words are positive or negative for each author. The barplot above shows that for each author, no matter from which school, prefer to use positive words rather than negative one.
 
 
 ## Part IV sentence length comparison for each school
@@ -119,12 +158,12 @@ By looking at the graphs, it can be seen that sentences around 100 words are mos
 So far we have made comparisons of each school through text mining in three different aspects. 
 
 * **Similarity:** 
-1. All schools prefer to have "trust" emotion and seldom use disgusting and surprising words in their expressions
-2. Most sentences in all school are from 100 to 150 words.
+1. All schools prefer to have "trust" emotion and seldom use disgusting and surprising words in their expressions.
+2. All authors like positive words rather than negative ones.
+3. Most sentences in all school are from 100 to 150 words.
 
 * **Distinction:**
-1. Both abstract and concrete main ideas exist in these schools. For those school focusing more on abstract ideas like plato or continental, the words like "one" "idea" “can" appear frequently and audience need to spend some time reading and digesting the true meaning behind the sentences.For those schools like capitalism focusing more on concrete ideas, their wordcloud is more readable and audience can easily understand their main idea by just a single word.
+1. Both abstract and concrete main ideas exist in these schools. For those school focusing more on abstract ideas like plato, the words like "one" "idea" “can" appear frequently and audience need to spend some time reading and digesting the true meaning behind the sentences.For those schools like capitalism focusing more on concrete ideas, their wordcloud is more readable and audience can easily understand their main idea by just a single word.
 
 2. Authors from schools like capitalism like using longer sentences while authors from plato,analytic prefer shorter sentences.
-
 
