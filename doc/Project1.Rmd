@@ -1,0 +1,130 @@
+---
+title: 'Comparsion among thirteen major schools in philisophy through text mining'
+author: "Chenghao Lu"
+date: "2023-01-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Philosophy is the general study of problems such as reason, values,mind...For people who never learn philosophy before, they may have heard of plato or aristotle but have no idea of what the truth in philosophy is. In this data story, I will give all levels of audience a general picture of philosophy through text mining and visualization from history of philosophy dataset. The dataset consists of sentences from authors in thirteen major schools("plato","aristotle","stoicism","rationalism","empiricism","capitalism","german_idealism","communism","nietzsche","phenomenology","feminism","continental","analytic"). I will use text mining to look for possible similarities or differences among these schools. 
+
+## Part I load libraries
+
+```{r  message=FALSE,warning=FALSE}
+library(beeswarm)
+library(data.table)
+library(dichromat)
+library(dplyr)
+library(factoextra)
+library(fmsb)
+library(ggplot2)
+library(gridExtra)
+library(quanteda)
+library(quanteda.textstats)
+library(RANN)
+library(RColorBrewer)
+library(readtext)
+library(rvest)
+library(scales)
+library(sentimentr)
+library(stopwords)
+library(stringr)
+library(syuzhet)
+library(textreuse)
+library(tibble)
+library(tidytext)
+library(tidyverse)
+library(tm)
+library(topicmodels)
+library(wesanderson)
+library(wordcloud)
+```
+
+## Part II Main Philosophy idea for each school through wordclouds
+
+The first comparison is to find how their main ideas differ or similar from each other through wordclouds. Wordcloud is a powerful visualization tool that can help us understand how frequently each word appears in the text by different size of text.The main idea of each school can easily be investigated by visualizing its corresponding wordcloud.
+
+```{r message=FALSE, warning=FALSE}
+df = read.csv("C:/Users/Chenghao Lu/Desktop/philosophy_data.csv")
+sot = c("plato","aristotle","stoicism","rationalism","empiricism","capitalism","german_idealism",
+        "communism","nietzsche","phenomenology","feminism","continental","analytic")
+
+for (i in sot){
+  docs <- Corpus(VectorSource(df[df$school == i, ]$sentence_str)) %>%
+    tm_map(tolower) %>%
+    tm_map(removePunctuation) %>%
+    tm_map(removeNumbers) %>%
+    tm_map(removeWords, stopwords("english")) %>%
+    tm_map(stripWhitespace)
+  
+  dtm <- TermDocumentMatrix(docs) 
+  matrix <- as.matrix(dtm) 
+  words <- sort(rowSums(matrix),decreasing=TRUE) 
+  df2 <- data.frame(word = names(words),freq=words)
+  
+  wordcloud(words = df2$word, freq = df2$freq, min.freq = 100, 
+            scale = c(5,0.5), max.words=200, random.order = FALSE,colors=brewer.pal(8, "Dark2"))
+  mtext(i,side=3)
+}
+```
+
+By examining the wordclouds, some themes from particular school become obvious. For capitalism, the words like "price","value","money" appear more often than other words which implies that this school focuses more on economics. Similar for feminism, the words like "woman", "man" reflect its focus on woman's rights and the words such as "black","white" also infer its study on racial discrimination.
+
+
+However, sometimes wordcloud is not enough to see the main idea behind. For example, the stoicism uses old Engligh a lot in the text and it is difficult to understand the meaning by just counting the frequency of each word. Also, themes from some schools like Plato,nietzsche or continental... are possibly too abstract to visualize through wordclouds because we can only see the words like "one","thing","can". In this case, we had better read the whole context to understand the meaning behind the words.
+
+## Part III NRC Sentiment analysis for each school
+
+It is also interesting to find the emotions behind the words for each school. There are eight basic sentiments mentioned in NRC lexicon(anger,anticipation,disgust,fear,joy,sadness,surprise,trust). By simply inner join and analyzing the sentiment value, we can find the extent of appearance of certain emotional aspects in philosophical expressions.
+
+```{r message=FALSE, warning=FALSE}
+emo <- get_sentiments("nrc") %>% filter(sentiment != "positive" & sentiment != "negative")
+text <- tibble(author = df$author, school = df$school, text = df$lemmatized_str)
+tokenized <- text %>% unnest_tokens(word, text)
+tidy_words <- tokenized %>% anti_join(stop_words) %>% filter(word != "pron")
+
+text_tokenized <- tidy_words %>% inner_join(emo)
+text_tokenized = count(text_tokenized, school, sentiment)
+
+ggplot(text_tokenized, aes(x = school, y = n)) +
+  geom_bar(
+    aes(color = sentiment, fill = sentiment),
+    stat = "identity", position = position_dodge(0.8)
+    ) +theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+
+Interestingly, from the above graph, "trust" seems to be the most frequent emotions in philosophical expressions because it occupies the most part in bars for all schools while disgust and surprise are the least popular emotions among them. This can possibly be explained by the fact that all authors, no matter from which school, hope to utilize some "trust" words instead of disgusting or surprising words to deliver their ideas and convince audience.
+
+
+## Part IV sentence length comparison for each school
+
+```{r message=FALSE, warning=FALSE,fig.width=14, fig.height=5}
+
+df <- mutate(df,school_new =factor(school))
+
+
+ggplot(df,aes(x = sentence_length,color=school_new,fill=school_new)) +geom_histogram(binwidth = 2, show.legend = FALSE)+xlim(0,500)+ facet_grid(.~school)+ labs(title = "Sentence Length by School", x = "Word count", y = "Sentence count")+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+```
+
+By looking at the graphs, it can be seen that sentences around 100 words are most frequently used by most school. While there are some still some distinction to be noticed here. Schools like plato,analytic prefer shorter sentences  because their graphs are a slightly left-skewed. While for schools like capitalism, the authors prefer longer sentences with more than 200 words to display a more normal distribution of sentence length.
+
+
+## Part V Conclusion
+
+So far we have made comparisons of each school through text mining in three different aspects. 
+
+* **Similarity:** 
+1. All schools prefer to have "trust" emotion and seldom use disgusting and surprising words in their expressions
+2. Most sentences in all school are from 100 to 150 words.
+
+* **Distinction:**
+1. Both abstract and concrete main ideas exist in these schools. For those school focusing more on abstract ideas like plato or continental, the words like "one" "idea" “can" appear frequently and audience need to spend some time reading and digesting the true meaning behind the sentences.For those schools like capitalism focusing more on concrete ideas, their wordcloud is more readable and audience can easily understand their main idea by just a single word.
+
+2. Authors from schools like capitalism like using longer sentences while authors from plato,analytic prefer shorter sentences.
+
+
